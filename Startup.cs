@@ -14,6 +14,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Parser
 {
@@ -29,21 +31,23 @@ namespace Parser
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            
             services.AddCors(options=> 
             {
                 options.AddPolicy("AllowOrigin", 
                 builder=> builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 
             });
-            services.AddScoped<PublishMessage>();
+            
+            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
             services.AddSingleton<MessageConsumer>();
-            services.AddControllers().AddNewtonsoftJson();
+            services.AddTransient<PublishMessage>();
 
             services.AddRabbitMQConnection(Configuration);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ConnectionFactory factory)
+        public void Configure(IApplicationBuilder app, Microsoft.AspNetCore.Hosting.IHostingEnvironment env, ConnectionFactory factory)
         {
             if (env.IsDevelopment())
             {
@@ -52,7 +56,7 @@ namespace Parser
             app.UseCors();
 
             var processors = app.ApplicationServices.GetService<MessageConsumer>();
-            var life =  app.ApplicationServices.GetService<Microsoft.Extensions.Hosting.IHostApplicationLifetime>();
+            var life =  app.ApplicationServices.GetService<Microsoft.Extensions.Hosting.IApplicationLifetime>();
             life.ApplicationStarted.Register(GetOnStarted(factory, processors));
             life.ApplicationStopping.Register(GetOnStopped(factory, processors));
 
@@ -73,7 +77,7 @@ namespace Parser
                     {
                         var publisher = app.ApplicationServices.GetService<PublishMessage>();
 
-                        var messageToPublish = ConvertToString(context.Request?.Body);
+                        var messageToPublish = await ConvertToString(context.Request?.Body);
 
                         if(string.IsNullOrEmpty(messageToPublish)){
                             await context.Response.WriteAsync("Provide data in request body to learn");
@@ -96,7 +100,7 @@ namespace Parser
                         headers.Add(header.Key, header.Value.FirstOrDefault());
                     }
 
-                    var messageBody = ConvertToString(context.Request?.Body);
+                    var messageBody = await ConvertToString(context.Request?.Body);
 
                     var message = new MessageDto
                     {
@@ -125,17 +129,14 @@ namespace Parser
                         await context.Response.WriteAsync(Convert.ToString(jo.SelectToken("data.response.raw_data")) ?? "No Data Found");
                     }
                 }
-                catch
+                catch(Exception ex)
                 {
 
                 }
 
             });
 
-            app.UseEndpoints(endpoints =>
-            {
-                endpoints.MapControllers();
-            });
+           app.UseMvc();
         }
 
         private static Action GetOnStarted(ConnectionFactory factory, MessageConsumer processors)
@@ -148,13 +149,11 @@ namespace Parser
             return () => {processors.DeRegister(factory);};
         }
 
-        private static string ConvertToString(Stream stream)
+        private static Task<string> ConvertToString(Stream stream)
         {
-            if(stream == null) return string.Empty;
-
             var rdr =  new StreamReader(stream);
 
-            return rdr.ReadToEnd();
+            return rdr.ReadToEndAsync();
         }
     }
 }

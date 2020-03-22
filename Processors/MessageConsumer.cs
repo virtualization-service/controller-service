@@ -8,13 +8,13 @@ namespace ControllerService.Processors
     public class MessageConsumer
     {
 
-        Virtualizer _extractor;
+        //Virtualizer _extractor;
 
         private IModel _channel;
 
-        public MessageConsumer(Virtualizer extractor)
+        public MessageConsumer()
         {
-            _extractor = extractor;
+            //_extractor = extractor;
         }
 
         public void Register(ConnectionFactory factory)
@@ -27,8 +27,7 @@ namespace ControllerService.Processors
 
             _channel.ExchangeDeclare("virtualization", type: "topic", durable: true);
             _channel.QueueDeclare("vir_response");
-            _channel.QueueBind("vir_response"," virtualization", "evaluator.completed");
-
+            _channel.QueueBind("vir_response","virtualization", "evaluator.completed");
         }
 
         public void DeRegister(ConnectionFactory factory)
