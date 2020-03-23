@@ -131,6 +131,8 @@ namespace Parser
 
                     var serializedMessage = JsonConvert.SerializeObject(message);
 
+                    Console.WriteLine($"Data is being published {serializedMessage}");
+
                     using(var virtualizer =  new Virtualizer(factory))
                     {
                         var response = await virtualizer.CallASync(serializedMessage, factory);
