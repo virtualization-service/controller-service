@@ -82,13 +82,22 @@ namespace Parser
 
                         foreach(var val in environments.Keys)
                         {
-                            //data += val.ToString() +":" + Environment.GetEnvironmentVariable(val.ToString()) + "||";
-                            data1.Add(new XElement(val.ToString(), Environment.GetEnvironmentVariable(val.ToString())));
-                            await context.Response.WriteAsync(data1.ToString());
-                            return;
+                            try
+                            {
+                            data += val.ToString() +":" + Environment.GetEnvironmentVariable(val.ToString()) + "||";
+                            //data1.Add(new XElement(val.ToString(), Environment.GetEnvironmentVariable(val.ToString())));
+                            }
+                            catch(Exception ex)
+                            {
+                                Console.WriteLine(ex);
+                            }
+                            
+                           
                         }
+                        await context.Response.WriteAsync(data.ToString());
+                        return;
 
-                        await context.Response.WriteAsync("Running");
+                        
                     }
 
                     if(requestPath.ToLower().Equals("/virtualization-train"))
