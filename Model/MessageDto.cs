@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace Parser.Model
 {
@@ -13,6 +14,7 @@ namespace Parser.Model
 
         public Body response;
 
+        [JsonIgnore]
         public string service_component
         {
             get

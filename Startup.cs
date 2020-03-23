@@ -16,6 +16,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using System.Xml.Linq;
 
 namespace Parser
 {
@@ -70,6 +71,23 @@ namespace Parser
                     if(string.IsNullOrEmpty(requestPath)
                     || requestPath == "/" || requestPath =="/favicon.ico" || requestPath =="/cloudfoundryapplication" )
                     {
+                        await context.Response.WriteAsync("Running");
+                    }
+
+                    if( requestPath == "/config")
+                    {
+                        var environments = Environment.GetEnvironmentVariables();
+                        XElement data1 = new XElement("parent");
+                        var data = "";
+
+                        foreach(var val in environments.Keys)
+                        {
+                            //data += val.ToString() +":" + Environment.GetEnvironmentVariable(val.ToString()) + "||";
+                            data1.Add(new XElement(val.ToString(), Environment.GetEnvironmentVariable(val.ToString())));
+                            await context.Response.WriteAsync(data1.ToString());
+                            return;
+                        }
+
                         await context.Response.WriteAsync("Running");
                     }
 
