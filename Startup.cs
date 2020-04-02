@@ -65,6 +65,12 @@ namespace Parser
             {
                 try
                 {
+                    if(context.Request.Method == "OPTIONS")
+                    {
+                        context.Response.Headers.Add("Access-Control-Allow-Origin","*");
+                        context.Response.Headers.Add("Access-Control-Allow-Methods",new[] {HttpMethods.Post, HttpMethods.Get, HttpMethods.Options, HttpMethods.Put, HttpMethods.Trace, HttpMethods.Delete});
+                        return;
+                    }
                     var requestPath = context.Request.Path.Value;
                     Console.WriteLine($"Request Path {requestPath} and with method {context.Request.Method}");
 
@@ -72,6 +78,7 @@ namespace Parser
                     || requestPath == "/" || requestPath =="/favicon.ico" || requestPath =="/cloudfoundryapplication" )
                     {
                         await context.Response.WriteAsync("Running");
+                        return;
                     }
 
                     if( requestPath == "/config")
