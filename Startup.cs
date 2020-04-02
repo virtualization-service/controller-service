@@ -77,7 +77,7 @@ namespace Parser
                     if(string.IsNullOrEmpty(requestPath)
                     || requestPath == "/" || requestPath =="/favicon.ico" || requestPath =="/cloudfoundryapplication" )
                     {
-                        await context.Response.WriteAsync("Running");
+                        await context.Response.WriteAsync("Running!!");
                         return;
                     }
 
