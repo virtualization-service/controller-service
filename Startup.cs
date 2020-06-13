@@ -32,15 +32,15 @@ namespace Parser
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            
+            services.AddControllers();
             services.AddCors(options=> 
             {
                 options.AddPolicy("AllowOrigin", 
                 builder=> builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 
             });
+            services.AddMvc(option => option.EnableEndpointRouting = false);
             
-            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
             services.AddSingleton<MessageConsumer>();
             services.AddTransient<PublishMessage>();
 
@@ -48,7 +48,7 @@ namespace Parser
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, Microsoft.AspNetCore.Hosting.IHostingEnvironment env, ConnectionFactory factory)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ConnectionFactory factory)
         {
             if (env.IsDevelopment())
             {
@@ -57,7 +57,7 @@ namespace Parser
             app.UseCors();
 
             var processors = app.ApplicationServices.GetService<MessageConsumer>();
-            var life =  app.ApplicationServices.GetService<Microsoft.Extensions.Hosting.IApplicationLifetime>();
+            var life =  app.ApplicationServices.GetService<IHostApplicationLifetime>();
             life.ApplicationStarted.Register(GetOnStarted(factory, processors));
             life.ApplicationStopping.Register(GetOnStopped(factory, processors));
 

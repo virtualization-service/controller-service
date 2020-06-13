@@ -8,7 +8,7 @@ namespace ControllerService.Processors
     public class MessageConsumer
     {
 
-        //Virtualizer _extractor;
+        // Virtualizer _extractor;
 
         private IModel _channel;
 
