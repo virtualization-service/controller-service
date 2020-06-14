@@ -20,7 +20,7 @@ using System.Xml.Linq;
 
 namespace Parser
 {
-    public class Startup
+        public class Startup
     {
         public Startup(IConfiguration configuration)
         {
@@ -33,17 +33,13 @@ namespace Parser
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
+            services.AddSingleton<PublishMessage>();
             services.AddSingleton<MessageConsumer>();
-            services.AddTransient<PublishMessage>();
-            services.AddCors(options=> 
-            {
-                options.AddPolicy("AllowOrigin", 
-                builder=> builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
-
-            });
-            services.AddMvc(option => option.EnableEndpointRouting = false);
+            //services.AddSingleton<MessageExtractor>();
 
             services.AddRabbitMQConnection(Configuration);
+
+            
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -53,7 +49,6 @@ namespace Parser
             {
                 app.UseDeveloperExceptionPage();
             }
-            app.UseCors();
 
             var processors = app.ApplicationServices.GetService<MessageConsumer>();
             var life =  app.ApplicationServices.GetService<IHostApplicationLifetime>();
@@ -61,116 +56,10 @@ namespace Parser
             life.ApplicationStopping.Register(GetOnStopped(factory, processors));
             app.UseRouting();
 
-            app.Run(async context => 
-            {
-                try
-                {
-                    if(context.Request.Method == "OPTIONS")
-                    {
-                        context.Response.Headers.Add("Access-Control-Allow-Origin","*");
-                        context.Response.Headers.Add("Access-Control-Allow-Methods",new[] {HttpMethods.Post, HttpMethods.Get, HttpMethods.Options, HttpMethods.Put, HttpMethods.Trace, HttpMethods.Delete});
-                        return;
-                    }
-                    var requestPath = context.Request.Path.Value;
-                    Console.WriteLine($"Request Path {requestPath} and with method {context.Request.Method}");
+            app.Run( async context=>await new RequestProcessor().ProcessResponseAsync(context,app,factory));
 
-                    if(string.IsNullOrEmpty(requestPath)
-                    || requestPath == "/" || requestPath =="/favicon.ico" || requestPath =="/cloudfoundryapplication" )
-                    {
-                        await context.Response.WriteAsync("Running!!");
-                        return;
-                    }
+            //app.UseAuthorization();
 
-                    if( requestPath == "/config")
-                    {
-                        var environments = Environment.GetEnvironmentVariables();
-                        XElement data1 = new XElement("parent");
-                        var data = "";
-
-                        foreach(var val in environments.Keys)
-                        {
-                            try
-                            {
-                            data += val.ToString() +":" + Environment.GetEnvironmentVariable(val.ToString()) + "||";
-                            //data1.Add(new XElement(val.ToString(), Environment.GetEnvironmentVariable(val.ToString())));
-                            }
-                            catch(Exception ex)
-                            {
-                                Console.WriteLine(ex);
-                            }
-                            
-                           
-                        }
-                        await context.Response.WriteAsync(data.ToString());
-                        return;
-
-                        
-                    }
-
-                    if(requestPath.ToLower().Equals("/virtualization-train"))
-                    {
-                        var publisher = app.ApplicationServices.GetService<PublishMessage>();
-
-                        var messageToPublish = await ConvertToString(context.Request?.Body);
-
-                        if(string.IsNullOrEmpty(messageToPublish)){
-                            await context.Response.WriteAsync("Provide data in request body to learn");
-                        }
-                        else
-                        {
-                            publisher.Publish(messageToPublish , factory);
-                            await context.Response.WriteAsync("Learning is in progress, should be completed by the time you can read this.");
-                        }
-
-                        return;
-                    }
-
-                    var headers = new Dictionary<string, string>();
-
-                    foreach(var header in context.Request.Headers)
-                    {
-                        if(header.Key == "Content-Length") continue;
-
-                        headers.Add(header.Key, header.Value.FirstOrDefault());
-                    }
-
-                    var messageBody = await ConvertToString(context.Request?.Body);
-
-                    var message = new MessageDto
-                    {
-                        service = new System.Uri(context.Request.Scheme+"://" + context.Request.Host + context.Request.Path),
-                        request =  new Body{
-                            raw_data = messageBody,
-                            headers = headers
-                        }
-                    };
-
-                    var serializedMessage = JsonConvert.SerializeObject(message);
-
-                    Console.WriteLine($"Data is being published {serializedMessage}");
-
-                    using(var virtualizer =  new Virtualizer(factory))
-                    {
-                        var response = await virtualizer.CallASync(serializedMessage, factory);
-
-                        if(response == null) await context.Response.WriteAsync("Error Generating Response");
-
-                        var jo =  JObject.Parse(response);
-
-                        context.Response.Headers.TryAdd("confidence", Convert.ToString(jo.SelectToken("data.confidence")));
-                        context.Response.Headers.TryAdd("rank", Convert.ToString(jo.SelectToken("data.rank")));
-                        context.Response.Headers.TryAdd("propertiesMatched", Convert.ToString(jo.SelectToken("data.confidence")));
-                        context.Response.Headers.TryAdd("Content-Type", "application/json;charset=UTF-8");
-
-                        await context.Response.WriteAsync(Convert.ToString(jo.SelectToken("data.response.raw_data")) ?? "No Data Found");
-                    }
-                }
-                catch(Exception ex)
-                {
-
-                }
-
-            });
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
@@ -185,13 +74,6 @@ namespace Parser
         private static Action GetOnStopped(ConnectionFactory factory, MessageConsumer processors)
         {
             return () => {processors.DeRegister(factory);};
-        }
-
-        private static Task<string> ConvertToString(Stream stream)
-        {
-            var rdr =  new StreamReader(stream);
-
-            return rdr.ReadToEndAsync();
         }
     }
 }

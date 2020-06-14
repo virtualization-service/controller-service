@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
@@ -25,9 +26,14 @@ namespace ControllerService.Processors
 
             _channel.ExchangeDeclare("configuration", type: "topic", durable: true);
 
-            _channel.ExchangeDeclare("virtualization", type: "topic", durable: true);
+            //_channel.ExchangeDeclare("virtualization", type: "topic", durable: true);
             _channel.QueueDeclare("vir_response");
             _channel.QueueBind("vir_response","virtualization", "evaluator.completed");
+            
+
+            _channel.ConfirmSelect();
+
+            _channel.BasicQos(0,10000, false);
         }
 
         public void DeRegister(ConnectionFactory factory)

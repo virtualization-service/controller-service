@@ -10,18 +10,26 @@ using Microsoft.Extensions.Logging;
 
 namespace Parser
 {
-    public class Program
+     public class Program
     {
         public static void Main(string[] args)
         {
             CreateHostBuilder(args).Build().Run();
         }
 
-        public static IWebHostBuilder CreateHostBuilder(string[] args) =>
-            WebHost.CreateDefaultBuilder(args)
-                .ConfigureAppConfiguration((buildContext, configBuilder)=>{
-                    configBuilder.AddEnvironmentVariables();
-                    configBuilder.AddJsonFile("appsettings.json");
-                }).UseStartup<Startup>();
+        public static IHostBuilder CreateHostBuilder(string[] args) =>
+            Host.CreateDefaultBuilder(args)
+                .ConfigureWebHostDefaults(webBuilder =>
+                {
+                    webBuilder.UseStartup<Startup>();
+                })
+                 .ConfigureLogging(logging =>
+                {
+                    logging.ClearProviders();
+                    logging.AddConsole();
+                })
+                .ConfigureAppConfiguration(hostBuilder=>{
+                    hostBuilder.AddJsonFile("appsettings.json");
+                });
     }
 }
