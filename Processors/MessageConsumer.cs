@@ -26,7 +26,7 @@ namespace ControllerService.Processors
 
             _channel.ExchangeDeclare("configuration", type: "topic", durable: true);
 
-            //_channel.ExchangeDeclare("virtualization", type: "topic", durable: true);
+            _channel.ExchangeDeclare("virtualization", type: "topic", durable: true);
             _channel.QueueDeclare("vir_response");
             _channel.QueueBind("vir_response","virtualization", "evaluator.completed");
             
