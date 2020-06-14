@@ -33,6 +33,8 @@ namespace Parser
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
+            services.AddSingleton<MessageConsumer>();
+            services.AddTransient<PublishMessage>();
             services.AddCors(options=> 
             {
                 options.AddPolicy("AllowOrigin", 
@@ -40,9 +42,6 @@ namespace Parser
 
             });
             services.AddMvc(option => option.EnableEndpointRouting = false);
-            
-            services.AddSingleton<MessageConsumer>();
-            services.AddTransient<PublishMessage>();
 
             services.AddRabbitMQConnection(Configuration);
         }
@@ -60,6 +59,7 @@ namespace Parser
             var life =  app.ApplicationServices.GetService<IHostApplicationLifetime>();
             life.ApplicationStarted.Register(GetOnStarted(factory, processors));
             life.ApplicationStopping.Register(GetOnStopped(factory, processors));
+            app.UseRouting();
 
             app.Run(async context => 
             {
@@ -171,8 +171,10 @@ namespace Parser
                 }
 
             });
-
-           app.UseMvc();
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapControllers();
+            });
         }
 
         private static Action GetOnStarted(ConnectionFactory factory, MessageConsumer processors)

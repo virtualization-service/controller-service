@@ -20,7 +20,7 @@ namespace ControllerService.Processors
         public void Register(ConnectionFactory factory)
         {
             var connection = factory.CreateConnection();
-
+           
             _channel = connection.CreateModel();
 
             _channel.ExchangeDeclare("configuration", type: "topic", durable: true);
