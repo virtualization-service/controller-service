@@ -27,7 +27,7 @@ namespace Parser
                options.AddPolicy(name: MyAllowSpecificOrigins,
                                builder =>
                                {
-                                   builder.WithOrigins("http://localhost:4200","*").AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+                                   builder.WithOrigins("http://localhost:4200","*").WithMethods("GET","POST","DELETE","PUT");
                                });
            });
 
