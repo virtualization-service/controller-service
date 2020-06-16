@@ -8,42 +8,46 @@ using System.Threading;
 
 namespace ControllerService.Processors
 {
-    public class Virtualizer : IDisposable
+    public class Virtualizer
     {
 
         private IConnection connection;
 
         private IModel channel;
 
-        private readonly string replyQueueName;
-
-        private readonly EventingBasicConsumer consumer;
-
         private ConcurrentDictionary<string, TaskCompletionSource<string>> callBackMapper = new ConcurrentDictionary<string, TaskCompletionSource<string>>();
 
-
-        public Virtualizer(ConnectionFactory factory)
+        public void SetupVirtualizer(ConnectionFactory factory)
         {
             connection = factory.CreateConnection();
             channel = connection.CreateModel();
             channel.ConfirmSelect();
-            replyQueueName = "vir_response";
-            consumer = new EventingBasicConsumer(channel);
+            var replyQueueName = "vir_response";
+            var consumer = new EventingBasicConsumer(channel);
             
             consumer.Received += (consumerModel ,ea) =>
             {
+                var body = ea.Body;
+                var response = Encoding.UTF8.GetString(body);
+
                 if(!this.callBackMapper.TryRemove(ea.BasicProperties.CorrelationId ?? string.Empty, out TaskCompletionSource<string> tcs))
                 {
                     return;
                 }
-                var body = ea.Body;
-                var response = Encoding.UTF8.GetString(body);
+                
 
                 this.channel.BasicAck(ea.DeliveryTag, false);
                 tcs.TrySetResult(response);
             };
             channel.BasicQos(0,10000,false);
-            channel.BasicConsume(replyQueueName,autoAck:false, consumer: consumer);
+            channel.BasicConsume(replyQueueName, autoAck:false, consumer: consumer);
+
+        }
+
+
+        public Virtualizer()
+        {
+            
         }
 
         public Task<string> CallASync(string message, ConnectionFactory factory, CancellationToken cancellationToken = default(CancellationToken))
@@ -51,7 +55,7 @@ namespace ControllerService.Processors
             IBasicProperties props = channel.CreateBasicProperties();
             var correlationId = Guid.NewGuid().ToString();
             props.CorrelationId = correlationId;
-            props.ReplyTo = "vir_response";
+            props.ReplyTo = "vir_response2";
             var messageBytes = Encoding.UTF8.GetBytes(message);
 
             var tcs = new TaskCompletionSource<string>();
@@ -74,7 +78,7 @@ namespace ControllerService.Processors
             return tcs.Task;
         }
 
-        public void Dispose()
+        public void Deregister(ConnectionFactory factory)
         {
             if(channel != null && !channel.IsClosed)
             {

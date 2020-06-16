@@ -34,6 +34,7 @@ namespace Parser
             services.AddControllers();
             services.AddSingleton<PublishMessage>();
             services.AddSingleton<MessageConsumer>();
+            services.AddSingleton<Virtualizer>();
 
             services.AddRabbitMQConnection(Configuration);
         }
@@ -47,9 +48,12 @@ namespace Parser
             }
 
             var processors = app.ApplicationServices.GetService<MessageConsumer>();
+            var virtualizer = app.ApplicationServices.GetService<Virtualizer>();
             var life = app.ApplicationServices.GetService<IHostApplicationLifetime>();
             life.ApplicationStarted.Register(GetOnStarted(factory, processors));
             life.ApplicationStopping.Register(GetOnStopped(factory, processors));
+            life.ApplicationStarted.Register(RegisterVirtualizer(factory, virtualizer));
+            life.ApplicationStopping.Register(DeregisterVirtualizer(factory, virtualizer));
             app.UseRouting();
 
             app.Run(async context => await new RequestProcessor().ProcessResponseAsync(context, app, factory));
@@ -65,12 +69,22 @@ namespace Parser
 
         private static Action GetOnStarted(ConnectionFactory factory, MessageConsumer processors)
         {
-            return () => { processors.Register(factory); };
+            return () => { processors.Register(factory);  };
         }
 
         private static Action GetOnStopped(ConnectionFactory factory, MessageConsumer processors)
         {
             return () => { processors.DeRegister(factory); };
+        }
+
+        private static Action RegisterVirtualizer(ConnectionFactory factory, Virtualizer processors)
+        {
+            return () => { processors.SetupVirtualizer(factory);  };
+        }
+
+        private static Action DeregisterVirtualizer(ConnectionFactory factory, Virtualizer processors)
+        {
+            return () => { processors.Deregister(factory); };
         }
     }
 }
