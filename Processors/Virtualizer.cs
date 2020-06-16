@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Collections.Generic;
 
 namespace ControllerService.Processors
 {
@@ -19,10 +20,19 @@ namespace ControllerService.Processors
 
         public void SetupVirtualizer(ConnectionFactory factory)
         {
+            var replyQueueName = "vir_response";
+
             connection = factory.CreateConnection();
             channel = connection.CreateModel();
+            
+            
+            channel.ExchangeDeclare("virtualization", type: "topic", durable: true);
+
+            channel.QueueDeclare(replyQueueName,false,false,false,new Dictionary<string,object>{{"x-message-ttl", 60000}});
+            channel.QueueBind(replyQueueName,"virtualization", "evaluator.completed");
             channel.ConfirmSelect();
-            var replyQueueName = "vir_response";
+
+            
             var consumer = new EventingBasicConsumer(channel);
             
             consumer.Received += (consumerModel ,ea) =>
