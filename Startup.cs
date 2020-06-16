@@ -22,12 +22,12 @@ namespace Parser
 
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddCors(options =>
+           services.AddCors(options =>
            {
-               options.AddPolicy(name: MyAllowSpecificOrigins,
+               options.AddDefaultPolicy(
                                builder =>
                                {
-                                   builder.WithOrigins("http://localhost:4200","*").WithMethods("GET","POST","DELETE","PUT");
+                                   builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
                                });
            });
 
@@ -55,9 +55,10 @@ namespace Parser
             life.ApplicationStarted.Register(RegisterVirtualizer(factory, virtualizer));
             life.ApplicationStopping.Register(DeregisterVirtualizer(factory, virtualizer));
             app.UseRouting();
+            app.UseCors();
 
             app.Run(async context => await new RequestProcessor().ProcessResponseAsync(context, app, factory));
-            app.UseCors(MyAllowSpecificOrigins);
+            
 
             //app.UseAuthorization();
 
