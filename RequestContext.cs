@@ -74,12 +74,12 @@ namespace ControllerService.Processors
                         var messageToPublish = await ConvertToString(context.Request?.Body);
 
                         if(string.IsNullOrEmpty(messageToPublish)){
-                            await context.Response.WriteAsync("Provide data in request body to learn");
+                            await context.Response.WriteAsync("{\"result\":\"Provide data in request body to learn\"}");
                         }
                         else
                         {
                             publisher.Publish(messageToPublish , factory);
-                            await context.Response.WriteAsync("Learning is in progress, should be completed by the time you can read this.");
+                            await context.Response.WriteAsync("{\"result\":\"Learning is in progress, should be completed by the time you can read this.\"}");
                         }
 
                         return;
