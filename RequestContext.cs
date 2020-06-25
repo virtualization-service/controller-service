@@ -93,6 +93,7 @@ namespace ControllerService.Processors
 
                         headers.Add(header.Key, header.Value.FirstOrDefault());
                     }
+                    headers.Add("Method", context.Request.Method);
 
                     var messageBody = await ConvertToString(context.Request?.Body);
 
