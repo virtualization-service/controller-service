@@ -74,12 +74,12 @@ namespace ControllerService.Processors
                         var messageToPublish = await ConvertToString(context.Request?.Body);
 
                         if(string.IsNullOrEmpty(messageToPublish)){
-                            await context.Response.WriteAsync("Provide data in request body to learn");
+                            await context.Response.WriteAsync("{\"result\":\"Provide data in request body to learn\"}");
                         }
                         else
                         {
                             publisher.Publish(messageToPublish , factory);
-                            await context.Response.WriteAsync("Learning is in progress, should be completed by the time you can read this.");
+                            await context.Response.WriteAsync("{\"result\":\"Learning is in progress, should be completed by the time you can read this.\"}");
                         }
 
                         return;
@@ -109,8 +109,7 @@ namespace ControllerService.Processors
                     var serializedMessage = JsonConvert.SerializeObject(message);
 
                     Console.WriteLine($"Data is being published {serializedMessage}");
-
-                    using(var virtualizer =  new Virtualizer(factory))
+                    var virtualizer = app.ApplicationServices.GetService<Virtualizer>();
                     {
                         var response = await virtualizer.CallASync(serializedMessage, factory);
 
