@@ -17,6 +17,7 @@ using Newtonsoft.Json.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using System.Xml.Linq;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace ControllerService.Processors
 {
@@ -97,15 +98,18 @@ namespace ControllerService.Processors
 
                     var messageBody = await ConvertToString(context.Request?.Body);
 
+                    var serviceUrl = context.Request.Scheme+"://" + context.Request.Host + context.Request.Path;
+                    serviceUrl = QueryHelpers.AddQueryString(serviceUrl,context.Request.Query.ToDictionary(x=> x.Key,y=>y.Value.FirstOrDefault()));
+
                     var message = new MessageDto
                     {
-                        service = new System.Uri(context.Request.Scheme+"://" + context.Request.Host + context.Request.Path),
+                        service = new System.Uri(serviceUrl),
                         request =  new Body{
                             raw_data = messageBody,
                             headers = headers
                         }
                     };
-
+                    
                     var serializedMessage = JsonConvert.SerializeObject(message);
 
                     Console.WriteLine($"Data is being published {serializedMessage}");
@@ -130,6 +134,12 @@ namespace ControllerService.Processors
 
                 }
             
+        }
+
+        private string GetQueryString(HttpRequest request)
+        {
+            var formattedString = string.Join("&", request.Query.Select(p=> p.Key +"=" +p.Value));
+            return string.IsNullOrWhiteSpace(formattedString)? string.Empty : "?" + formattedString;
         }
         
         private static Task<string> ConvertToString(Stream stream)
