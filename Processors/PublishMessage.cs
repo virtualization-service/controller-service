@@ -6,11 +6,6 @@ namespace ControllerService.Processors
 {
     public class PublishMessage
     {
-        public PublishMessage()
-        {
-
-        }
-
         public void Publish(string message, ConnectionFactory _factory, string exchange= "configuration", IBasicProperties properties = null)
         {
             PublishSingleMessage(message, _factory, exchange, properties);

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -9,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Parser
 {
-    public class Program
+     public class Program
     {
         public static void Main(string[] args)
         {
@@ -22,9 +23,13 @@ namespace Parser
                 {
                     webBuilder.UseStartup<Startup>();
                 })
-                .ConfigureAppConfiguration((buildContext, configBuilder)=>{
-                    configBuilder.AddEnvironmentVariables();
-                    configBuilder.AddJsonFile("appsettings.json");
+                 .ConfigureLogging(logging =>
+                {
+                    logging.ClearProviders();
+                    logging.AddConsole();
+                })
+                .ConfigureAppConfiguration(hostBuilder=>{
+                    hostBuilder.AddJsonFile("appsettings.json");
                 });
     }
 }

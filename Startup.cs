@@ -7,18 +7,12 @@ using Microsoft.Extensions.Hosting;
 using RabbitMQ.Client;
 using Steeltoe.CloudFoundry.Connector.RabbitMQ;
 using ControllerService.Processors;
-using Microsoft.AspNetCore.Http;
-using System.IO;
-using Parser.Model;
-using System.Collections.Generic;
-using System.Linq;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace Parser
 {
     public class Startup
     {
+        readonly string MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
@@ -26,18 +20,21 @@ namespace Parser
 
         public IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddCors(options=> 
-            {
-                options.AddPolicy("AllowOrigin", 
-                builder=> builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+           services.AddCors(options =>
+           {
+               options.AddDefaultPolicy(
+                               builder =>
+                               {
+                                   builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+                               });
+           });
 
-            });
-            services.AddScoped<PublishMessage>();
+            services.AddControllers();
+            services.AddSingleton<PublishMessage>();
             services.AddSingleton<MessageConsumer>();
-            services.AddControllers().AddNewtonsoftJson();
+            services.AddSingleton<Virtualizer>();
 
             services.AddRabbitMQConnection(Configuration);
         }
@@ -49,88 +46,21 @@ namespace Parser
             {
                 app.UseDeveloperExceptionPage();
             }
-            app.UseCors();
 
             var processors = app.ApplicationServices.GetService<MessageConsumer>();
-            var life =  app.ApplicationServices.GetService<Microsoft.Extensions.Hosting.IHostApplicationLifetime>();
+            var virtualizer = app.ApplicationServices.GetService<Virtualizer>();
+            var life = app.ApplicationServices.GetService<IHostApplicationLifetime>();
             life.ApplicationStarted.Register(GetOnStarted(factory, processors));
             life.ApplicationStopping.Register(GetOnStopped(factory, processors));
+            life.ApplicationStarted.Register(RegisterVirtualizer(factory, virtualizer));
+            life.ApplicationStopping.Register(DeregisterVirtualizer(factory, virtualizer));
+            app.UseRouting();
+            app.UseCors();
 
-            app.Run(async context => 
-            {
-                try
-                {
-                    var requestPath = context.Request.Path.Value;
-                    Console.WriteLine($"Request Path {requestPath} and with method {context.Request.Method}");
+            app.Run(async context => await new RequestProcessor().ProcessResponseAsync(context, app, factory));
+            
 
-                    if(string.IsNullOrEmpty(requestPath)
-                    || requestPath == "/" || requestPath =="/favicon.ico" || requestPath =="/cloudfoundryapplication" )
-                    {
-                        await context.Response.WriteAsync("Running");
-                    }
-
-                    if(requestPath.ToLower().Equals("/virtualization-train"))
-                    {
-                        var publisher = app.ApplicationServices.GetService<PublishMessage>();
-
-                        var messageToPublish = ConvertToString(context.Request?.Body);
-
-                        if(string.IsNullOrEmpty(messageToPublish)){
-                            await context.Response.WriteAsync("Provide data in request body to learn");
-                        }
-                        else
-                        {
-                            publisher.Publish(messageToPublish , factory);
-                            await context.Response.WriteAsync("Learning is in progress, should be completed by the time you can read this.");
-                        }
-
-                        return;
-                    }
-
-                    var headers = new Dictionary<string, string>();
-
-                    foreach(var header in context.Request.Headers)
-                    {
-                        if(header.Key == "Content-Length") continue;
-
-                        headers.Add(header.Key, header.Value.FirstOrDefault());
-                    }
-
-                    var messageBody = ConvertToString(context.Request?.Body);
-
-                    var message = new MessageDto
-                    {
-                        service = new System.Uri(context.Request.Scheme+"://" + context.Request.Host + context.Request.Path),
-                        request =  new Body{
-                            raw_data = messageBody,
-                            headers = headers
-                        }
-                    };
-
-                    var serializedMessage = JsonConvert.SerializeObject(message);
-
-                    using(var virtualizer =  new Virtualizer(factory))
-                    {
-                        var response = await virtualizer.CallASync(serializedMessage, factory);
-
-                        if(response == null) await context.Response.WriteAsync("Error Generating Response");
-
-                        var jo =  JObject.Parse(response);
-
-                        context.Response.Headers.TryAdd("confidence", Convert.ToString(jo.SelectToken("data.confidence")));
-                        context.Response.Headers.TryAdd("rank", Convert.ToString(jo.SelectToken("data.rank")));
-                        context.Response.Headers.TryAdd("propertiesMatched", Convert.ToString(jo.SelectToken("data.confidence")));
-                        context.Response.Headers.TryAdd("Content-Type", "application/json;charset=UTF-8");
-
-                        await context.Response.WriteAsync(Convert.ToString(jo.SelectToken("data.response.raw_data")) ?? "No Data Found");
-                    }
-                }
-                catch
-                {
-
-                }
-
-            });
+            //app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>
             {
@@ -140,21 +70,22 @@ namespace Parser
 
         private static Action GetOnStarted(ConnectionFactory factory, MessageConsumer processors)
         {
-            return () => {processors.Register(factory);};
+            return () => { processors.Register(factory);  };
         }
 
         private static Action GetOnStopped(ConnectionFactory factory, MessageConsumer processors)
         {
-            return () => {processors.DeRegister(factory);};
+            return () => { processors.DeRegister(factory); };
         }
 
-        private static string ConvertToString(Stream stream)
+        private static Action RegisterVirtualizer(ConnectionFactory factory, Virtualizer processors)
         {
-            if(stream == null) return string.Empty;
+            return () => { processors.SetupVirtualizer(factory);  };
+        }
 
-            var rdr =  new StreamReader(stream);
-
-            return rdr.ReadToEnd();
+        private static Action DeregisterVirtualizer(ConnectionFactory factory, Virtualizer processors)
+        {
+            return () => { processors.Deregister(factory); };
         }
     }
 }

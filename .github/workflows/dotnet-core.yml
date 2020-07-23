@@ -1,0 +1,77 @@
+name: .NET Core
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 3.1.101
+    - name: Extract branch name
+      shell: bash
+      run: |
+        echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        echo "##[set-output name=sha_short;]$(echo $(git rev-parse --short HEAD))"
+      id: extract_branch
+    #- name: Install dependencies
+      #run: dotnet restore
+    #- name: Build
+      #run: dotnet build --configuration Release --no-restore
+    - name: Set Constants
+      id: consts
+      run: |
+        echo ::set-output name=repo::$(echo ${GITHUB_REPOSITORY})
+        echo ::set-output name=sha_short::$(git rev-parse --short HEAD)
+        echo ::set-output name=image-name::$(echo quay.io/neinnovationorg/parser})
+        echo ::set-output name=branch::${GITHUB_REF#refs/heads/}
+        echo ::set-output name=docker_repo::$(echo /neinnovationorg/parser) 
+        
+    - name: Login to Podman
+      id: login
+      run:  |
+         echo ${{ steps.extract_branch.outputs.branch }}
+         echo ${{ steps.extract_branch.outputs.sha_short }}
+         podman login quay.io -u ${{ secrets.docker_username }} -p ${{ secrets.docker_password }}
+    - name: Build Image using Podman
+      run: |
+         podman build . -t quay.io/neinnovationorg/controller-service:${{ steps.extract_branch.outputs.branch }}
+    - name: Push Image to Github Registry
+      run: |
+          podman push quay.io/neinnovationorg/controller-service:${{ steps.extract_branch.outputs.branch }}
+    - name: OpenShift Action
+      uses: redhat-developer/openshift-actions@v2.0
+      with:
+        # The URL of the Openshift cluster
+        openshift_server_url: ${{ secrets.OPENSHIFT_SERVER_URL }}
+        # JSON with values to connect to the Openshift cluster
+        parameters: '{"username": "${{ secrets.OPENSHIFT_USER }}", "acceptUntrustedCerts": "true", "password":"${{ secrets.OPENSHIFT_PASSWORD }}"}'
+        # Oc command to be executed
+          #'version'
+          #'project development'
+          #'delete all --selector app=parser'
+          #'tag --source=docker quay.io/neinnovationorg/parser:${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.sha_short }} development/parser:${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.sha_short }}'
+          #'new-app quay.io/neinnovationorg/parser:${{ steps.extract_branch.outputs.branch }}-${{ steps.extract_branch.outputs.sha_short }}'
+          #'expose services/parser':  
+        cmd: |
+          'version'
+          'project virtualization'
+          'tag --source=docker quay.io/neinnovationorg/controller-service:${{ steps.extract_branch.outputs.branch }} virtualization/controller-service:${{ steps.extract_branch.outputs.branch }}'
+    - name: Scan Image
+      uses: Azure/container-scan@v0
+      continue-on-error: true
+      with:
+        image-name: quay.io/neinnovationorg/controller-service:${{ steps.extract_branch.outputs.branch }}
+        username: ${{ secrets.docker_username }}
+        password: ${{ secrets.docker_password }}
+        token: ${{ github.token }}
+        severity-threshold: HIGH
+        run-quality-checks: false
+      
