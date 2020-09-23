@@ -1,20 +1,20 @@
-# This workflow will do a clean install of node dependencies, build the source code and run tests across different versions of node
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
-
-name: Evaluator - Node.js CI
+name: .NET Core
 
 on:
   push:
-    branches: [ master, dev ]
+    branches: [ master ]
 
 jobs:
   build:
+
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [10.x]
+
     steps:
     - uses: actions/checkout@v2
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 3.1.101
     - name: Extract branch name
       shell: bash
       run: |
@@ -29,6 +29,7 @@ jobs:
         echo ::set-output name=image-name::$(echo quay.io/neinnovationorg/controller-service})
         echo ::set-output name=branch::${GITHUB_REF#refs/heads/}
         echo ::set-output name=docker_repo::$(echo /neinnovationorg/controller-service) 
+        
     - name: Login to Podman
       id: login
       run:  |
@@ -48,8 +49,9 @@ jobs:
         openshift_server_url: ${{ secrets.OPENSHIFT_SERVER_URL }}
         # JSON with values to connect to the Openshift cluster
         parameters: '{"username": "${{ secrets.OPENSHIFT_USER }}", "acceptUntrustedCerts": "true", "password":"${{ secrets.OPENSHIFT_PASSWORD }}"}'
-        # Oc command to be executed
+        # Oc command to be executed 
         cmd: |
           'version'
           'project vavtar-services'
           'tag --source=docker quay.io/neinnovationorg/controller-service:${{ steps.extract_branch.outputs.branch }} vavtar-services/controller-service:${{ steps.extract_branch.outputs.branch }}'
+      
