@@ -21,130 +21,133 @@ using Microsoft.AspNetCore.WebUtilities;
 
 namespace ControllerService.Processors
 {
-    public class RequestProcessor{
-        public async System.Threading.Tasks.Task ProcessResponseAsync(HttpContext context, IApplicationBuilder app, ConnectionFactory factory)
+    public class RequestProcessor
+    {
+        public async Task ProcessResponseAsync(HttpContext context, IApplicationBuilder app, ConnectionFactory factory)
         {
             try
+            {
+                if (context.Request.Method == "OPTIONS")
                 {
-                    if(context.Request.Method == "OPTIONS")
-                    {
-                        context.Response.Headers.Add("Access-Control-Allow-Origin","*");
-                        context.Response.Headers.Add("Access-Control-Allow-Methods",new[] {HttpMethods.Post, HttpMethods.Get, HttpMethods.Options, HttpMethods.Put, HttpMethods.Trace, HttpMethods.Delete});
-                        return;
-                    }
-                    var requestPath = context.Request.Path.Value;
-                    Console.WriteLine($"Request Path {requestPath} and with method {context.Request.Method}");
+                    context.Response.Headers.Add("Access-Control-Allow-Origin", "*");
+                    context.Response.Headers.Add("Access-Control-Allow-Methods", new[] { HttpMethods.Post, HttpMethods.Get, HttpMethods.Options, HttpMethods.Put, HttpMethods.Trace, HttpMethods.Delete });
+                    return;
+                }
+                var requestPath = context.Request.Path.Value;
+                Console.WriteLine($"Request Path {requestPath} and with method {context.Request.Method}");
 
-                    if(string.IsNullOrEmpty(requestPath)
-                    || requestPath == "/" || requestPath =="/favicon.ico" || requestPath =="/cloudfoundryapplication" )
-                    {
-                        await context.Response.WriteAsync("Running!!");
-                        return;
-                    }
+                if (string.IsNullOrEmpty(requestPath)
+                || requestPath == "/" || requestPath == "/favicon.ico" || requestPath == "/cloudfoundryapplication")
+                {
+                    await context.Response.WriteAsync("Running!!");
+                    return;
+                }
 
-                    if( requestPath == "/config")
-                    {
-                        var environments = Environment.GetEnvironmentVariables();
-                        XElement data1 = new XElement("parent");
-                        var data = "";
+                if (requestPath == "/config")
+                {
+                    var environments = Environment.GetEnvironmentVariables();
+                    XElement data1 = new XElement("parent");
+                    var data = "";
 
-                        foreach(var val in environments.Keys)
+                    foreach (var val in environments.Keys)
+                    {
+                        try
                         {
-                            try
-                            {
-                            data += val.ToString() +":" + Environment.GetEnvironmentVariable(val.ToString()) + "||";
+                            data += val.ToString() + ":" + Environment.GetEnvironmentVariable(val.ToString()) + "||";
                             //data1.Add(new XElement(val.ToString(), Environment.GetEnvironmentVariable(val.ToString())));
-                            }
-                            catch(Exception ex)
-                            {
-                                Console.WriteLine(ex);
-                            }
-                            
-                           
                         }
-                        await context.Response.WriteAsync(data.ToString());
-                        return;
-
-                        
-                    }
-
-                    if(requestPath.ToLower().Equals("/virtualization-train"))
-                    {
-                        var publisher = app.ApplicationServices.GetService<PublishMessage>();
-
-                        var messageToPublish = await ConvertToString(context.Request?.Body);
-
-                        if(string.IsNullOrEmpty(messageToPublish)){
-                            await context.Response.WriteAsync("{\"result\":\"Provide data in request body to learn\"}");
-                        }
-                        else
+                        catch (Exception ex)
                         {
-                            publisher.Publish(messageToPublish , factory);
-                            await context.Response.WriteAsync("{\"result\":\"Learning is in progress, should be completed by the time you can read this.\"}");
+                            Console.WriteLine(ex);
                         }
 
-                        return;
+
                     }
+                    await context.Response.WriteAsync(data.ToString());
+                    return;
 
-                    var headers = new Dictionary<string, string>();
 
-                    foreach(var header in context.Request.Headers)
-                    {
-                        if(header.Key == "Content-Length") continue;
-
-                        headers.Add(header.Key, header.Value.FirstOrDefault());
-                    }
-                    headers.Add("Method", context.Request.Method);
-
-                    var messageBody = await ConvertToString(context.Request?.Body);
-
-                    var serviceUrl = context.Request.Scheme+"://" + context.Request.Host + context.Request.Path;
-                    serviceUrl = QueryHelpers.AddQueryString(serviceUrl,context.Request.Query.ToDictionary(x=> x.Key,y=>y.Value.FirstOrDefault()));
-
-                    var message = new MessageDto
-                    {
-                        service = new System.Uri(serviceUrl),
-                        request =  new Body{
-                            raw_data = messageBody,
-                            headers = headers
-                        }
-                    };
-                    
-                    var serializedMessage = JsonConvert.SerializeObject(message);
-
-                    Console.WriteLine($"Data is being published {serializedMessage}");
-                    var virtualizer = app.ApplicationServices.GetService<Virtualizer>();
-                    {
-                        var response = await virtualizer.CallASync(serializedMessage, factory);
-
-                        if(response == null) await context.Response.WriteAsync("Error Generating Response");
-
-                        var jo =  JObject.Parse(response);
-
-                        context.Response.Headers.TryAdd("confidence", Convert.ToString(jo.SelectToken("data.confidence")));
-                        context.Response.Headers.TryAdd("rank", Convert.ToString(jo.SelectToken("data.rank")));
-                        context.Response.Headers.TryAdd("propertiesMatched", Convert.ToString(jo.SelectToken("data.confidence")));
-                        context.Response.Headers.TryAdd("Content-Type", "application/json;charset=UTF-8");
-
-                        await context.Response.WriteAsync(Convert.ToString(jo.SelectToken("data.response.raw_data")) ?? "No Data Found");
-                    }
                 }
-                catch(Exception ex)
+
+                if (requestPath.ToLower().Equals("/virtualization-train"))
                 {
+                    var publisher = app.ApplicationServices.GetService<PublishMessage>();
 
+                    var messageToPublish = await ConvertToString(context.Request?.Body);
+
+                    if (string.IsNullOrEmpty(messageToPublish))
+                    {
+                        await context.Response.WriteAsync("{\"result\":\"Provide data in request body to learn\"}");
+                    }
+                    else
+                    {
+                        publisher.Publish(messageToPublish, factory);
+                        await context.Response.WriteAsync("{\"result\":\"Learning is in progress, should be completed by the time you can read this.\"}");
+                    }
+
+                    return;
                 }
-            
+
+                var headers = new Dictionary<string, string>();
+
+                foreach (var header in context.Request.Headers)
+                {
+                    if (header.Key == "Content-Length") continue;
+
+                    headers.Add(header.Key, header.Value.FirstOrDefault());
+                }
+                headers.Add("Method", context.Request.Method);
+
+                var messageBody = await ConvertToString(context.Request?.Body);
+
+                var serviceUrl = context.Request.Scheme + "://" + context.Request.Host + context.Request.Path;
+                serviceUrl = QueryHelpers.AddQueryString(serviceUrl, context.Request.Query.ToDictionary(x => x.Key, y => y.Value.FirstOrDefault()));
+
+                var message = new MessageDto
+                {
+                    service = new Uri(serviceUrl),
+                    request = new Body
+                    {
+                        raw_data = messageBody,
+                        headers = headers
+                    }
+                };
+
+                var serializedMessage = JsonConvert.SerializeObject(message);
+
+                Console.WriteLine($"Data is being published {serializedMessage}");
+                var virtualizer = app.ApplicationServices.GetService<Virtualizer>();
+                {
+                    var response = await virtualizer.CallASync(serializedMessage, factory);
+
+                    if (response == null) await context.Response.WriteAsync("Error Generating Response");
+
+                    var jo = JObject.Parse(response);
+
+                    context.Response.Headers.TryAdd("confidence", Convert.ToString(jo.SelectToken("data.confidence")));
+                    context.Response.Headers.TryAdd("rank", Convert.ToString(jo.SelectToken("data.rank")));
+                    context.Response.Headers.TryAdd("propertiesMatched", Convert.ToString(jo.SelectToken("data.confidence")));
+                    context.Response.Headers.TryAdd("Content-Type", "application/json;charset=UTF-8");
+
+                    await context.Response.WriteAsync(Convert.ToString(jo.SelectToken("data.response.raw_data")) ?? "No Data Found");
+                }
+            }
+            catch (Exception ex)
+            {
+
+            }
+
         }
 
         private string GetQueryString(HttpRequest request)
         {
-            var formattedString = string.Join("&", request.Query.Select(p=> p.Key +"=" +p.Value));
-            return string.IsNullOrWhiteSpace(formattedString)? string.Empty : "?" + formattedString;
+            var formattedString = string.Join("&", request.Query.Select(p => p.Key + "=" + p.Value));
+            return string.IsNullOrWhiteSpace(formattedString) ? string.Empty : "?" + formattedString;
         }
-        
+
         private static Task<string> ConvertToString(Stream stream)
         {
-            var rdr =  new StreamReader(stream);
+            var rdr = new StreamReader(stream);
 
             return rdr.ReadToEndAsync();
         }

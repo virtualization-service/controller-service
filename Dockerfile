@@ -14,7 +14,7 @@ FROM mcr.microsoft.com/dotnet/core/aspnet:3.1
 WORKDIR /app
 COPY --from=build-env /app/out .
 
-LABEL io.k8s.display-name="app name" \
+LABEL io.k8s.display-name="controller service" \
       io.k8s.description="container description..." \
       io.openshift.expose-services="8080:http"
 

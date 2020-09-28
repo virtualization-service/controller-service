@@ -54,18 +54,12 @@ namespace ControllerService.Processors
 
         }
 
-
-        public Virtualizer()
-        {
-            
-        }
-
         public Task<string> CallASync(string message, ConnectionFactory factory, CancellationToken cancellationToken = default(CancellationToken))
         {
             IBasicProperties props = channel.CreateBasicProperties();
             var correlationId = Guid.NewGuid().ToString();
             props.CorrelationId = correlationId;
-            props.ReplyTo = "vir_response2";
+            props.ReplyTo = "vir_response";
             var messageBytes = Encoding.UTF8.GetBytes(message);
 
             var tcs = new TaskCompletionSource<string>();
