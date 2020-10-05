@@ -89,10 +89,13 @@ namespace ControllerService.Processors
                 }
 
                 var headers = new Dictionary<string, string>();
+                var contentType = "application/json;charset=UTF-8";
 
                 foreach (var header in context.Request.Headers)
                 {
+                    if(header.Key == "Content-Type") contentType = header.Value.FirstOrDefault();
                     if (header.Key == "Content-Length") continue;
+
 
                     headers.Add(header.Key, header.Value.FirstOrDefault());
                 }
@@ -127,7 +130,7 @@ namespace ControllerService.Processors
                     context.Response.Headers.TryAdd("confidence", Convert.ToString(jo.SelectToken("data.confidence")));
                     context.Response.Headers.TryAdd("rank", Convert.ToString(jo.SelectToken("data.rank")));
                     context.Response.Headers.TryAdd("propertiesMatched", Convert.ToString(jo.SelectToken("data.confidence")));
-                    context.Response.Headers.TryAdd("Content-Type", "application/json;charset=UTF-8");
+                    context.Response.Headers.TryAdd("Content-Type", contentType);
 
                     await context.Response.WriteAsync(Convert.ToString(jo.SelectToken("data.response.raw_data")) ?? "No Data Found");
                 }
