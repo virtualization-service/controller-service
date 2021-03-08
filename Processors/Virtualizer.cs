@@ -37,8 +37,6 @@ namespace ControllerService.Processors
             
             consumer.Received += (consumerModel ,ea) =>
             {
-
-                
                 var body = ea.Body;
                 var response = Encoding.UTF8.GetString(body);
                 Console.WriteLine($"Received message on virtualization exchange with CorrelationId { ea.BasicProperties.CorrelationId } and body {response}");

@@ -18,6 +18,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using System.Xml.Linq;
 using Microsoft.AspNetCore.WebUtilities;
+using System.Text;
 
 namespace ControllerService.Processors
 {
@@ -118,6 +119,10 @@ namespace ControllerService.Processors
 
                 var serializedMessage = JsonConvert.SerializeObject(message);
 
+                Microsoft.Extensions.Primitives.StringValues auth;
+                context.Request.Headers.TryGetValue("Authorization", out auth);
+
+
                 Console.WriteLine($"Data is being published {serializedMessage}");
                 var virtualizer = app.ApplicationServices.GetService<Virtualizer>();
                 {
@@ -126,6 +131,52 @@ namespace ControllerService.Processors
                     if (response == null) await context.Response.WriteAsync("Error Generating Response");
 
                     var jo = JObject.Parse(response);
+
+                    var authenticationType = Convert.ToString(jo.SelectToken("serviceData.authenticationMethod"));
+
+                    if(authenticationType == "basic"){
+                        var username = Convert.ToString(jo.SelectToken("serviceData.authenticationKey"));
+                        var password = Convert.ToString(jo.SelectToken("serviceData.authenticationValue"));
+
+                        String encoded = Convert.ToBase64String(Encoding.GetEncoding("ISO-8859-1").GetBytes(username + ":" + password));
+
+                        if("Basic " + encoded != Convert.ToString(auth)){
+                             context.Response.StatusCode = 401;
+                             return;
+                        }
+
+                    }
+
+                    if(authenticationType == "token"){
+                        var token = Convert.ToString(jo.SelectToken("serviceData.authenticationValue"));
+
+                        if("Bearer " + token != Convert.ToString(auth)){
+                            context.Response.StatusCode = 401;
+                            return;
+                        }
+                    }
+
+                    if(authenticationType == "token"){
+                        var token = Convert.ToString(jo.SelectToken("serviceData.authenticationValue"));
+
+                        if("Bearer " + token != Convert.ToString(auth)){
+                            context.Response.StatusCode = 401;
+                            return;
+                        }
+                    }
+
+                    if(authenticationType == "api"){
+                        var username = Convert.ToString(jo.SelectToken("serviceData.authenticationKey"));
+                        var password = Convert.ToString(jo.SelectToken("serviceData.authenticationValue"));
+
+                        Microsoft.Extensions.Primitives.StringValues headerKeyReceived = "";
+                        context.Request.Headers.TryGetValue(username ,out headerKeyReceived);
+
+                        if(headerKeyReceived != password){
+                            context.Response.StatusCode = 401;
+                            return;
+                        }
+                    }
 
                     context.Response.Headers.TryAdd("confidence", Convert.ToString(jo.SelectToken("data.confidence")));
                     context.Response.Headers.TryAdd("rank", Convert.ToString(jo.SelectToken("data.rank")));
