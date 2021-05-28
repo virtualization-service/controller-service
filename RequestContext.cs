@@ -61,13 +61,20 @@ namespace ControllerService.Processors
                         {
                             Console.WriteLine(ex);
                         }
-
-
                     }
                     await context.Response.WriteAsync(data.ToString());
                     return;
+                }
 
+                if (requestPath.StartsWith("/record/"))
+                {
 
+                    var messageDto = await new DuplicationContext().InvokeService(context, requestPath);
+
+                    var publisher = app.ApplicationServices.GetService<PublishMessage>();
+                    publisher.Publish(JsonConvert.SerializeObject(messageDto), factory);
+
+                    return;
                 }
 
                 if (requestPath.ToLower().Equals("/virtualization-train"))
@@ -89,12 +96,19 @@ namespace ControllerService.Processors
                     return;
                 }
 
+                //Call MongoDB to get all the latest urls from virtualization
+                //Mongo event listener
+
+                //Make a HTTP call to the actual service
+
+                //Train the virtualization system
+
                 var headers = new Dictionary<string, string>();
                 var contentType = "application/json;charset=UTF-8";
 
                 foreach (var header in context.Request.Headers)
                 {
-                    if(header.Key == "Content-Type") contentType = header.Value.FirstOrDefault();
+                    if (header.Key == "Content-Type") contentType = header.Value.FirstOrDefault();
                     if (header.Key == "Content-Length") continue;
 
 
@@ -134,45 +148,53 @@ namespace ControllerService.Processors
 
                     var authenticationType = Convert.ToString(jo.SelectToken("serviceData.authenticationMethod"));
 
-                    if(authenticationType == "basic"){
+                    if (authenticationType == "basic")
+                    {
                         var username = Convert.ToString(jo.SelectToken("serviceData.authenticationKey"));
                         var password = Convert.ToString(jo.SelectToken("serviceData.authenticationValue"));
 
                         String encoded = Convert.ToBase64String(Encoding.GetEncoding("ISO-8859-1").GetBytes(username + ":" + password));
 
-                        if("Basic " + encoded != Convert.ToString(auth)){
-                             context.Response.StatusCode = 401;
-                             return;
+                        if ("Basic " + encoded != Convert.ToString(auth))
+                        {
+                            context.Response.StatusCode = 401;
+                            return;
                         }
 
                     }
 
-                    if(authenticationType == "token"){
+                    if (authenticationType == "token")
+                    {
                         var token = Convert.ToString(jo.SelectToken("serviceData.authenticationValue"));
 
-                        if("Bearer " + token != Convert.ToString(auth)){
+                        if ("Bearer " + token != Convert.ToString(auth))
+                        {
                             context.Response.StatusCode = 401;
                             return;
                         }
                     }
 
-                    if(authenticationType == "token"){
+                    if (authenticationType == "token")
+                    {
                         var token = Convert.ToString(jo.SelectToken("serviceData.authenticationValue"));
 
-                        if("Bearer " + token != Convert.ToString(auth)){
+                        if ("Bearer " + token != Convert.ToString(auth))
+                        {
                             context.Response.StatusCode = 401;
                             return;
                         }
                     }
 
-                    if(authenticationType == "api"){
+                    if (authenticationType == "api")
+                    {
                         var username = Convert.ToString(jo.SelectToken("serviceData.authenticationKey"));
                         var password = Convert.ToString(jo.SelectToken("serviceData.authenticationValue"));
 
                         Microsoft.Extensions.Primitives.StringValues headerKeyReceived = "";
-                        context.Request.Headers.TryGetValue(username ,out headerKeyReceived);
+                        context.Request.Headers.TryGetValue(username, out headerKeyReceived);
 
-                        if(headerKeyReceived != password){
+                        if (headerKeyReceived != password)
+                        {
                             context.Response.StatusCode = 401;
                             return;
                         }
@@ -204,6 +226,17 @@ namespace ControllerService.Processors
             var rdr = new StreamReader(stream);
 
             return rdr.ReadToEndAsync();
+        }
+
+        private Dictionary<string, string> GetHeaders(IHeaderDictionary contentHeader)
+        {
+            var headers = new Dictionary<string, string>();
+
+            foreach (var header in contentHeader)
+            {
+                headers.Add(header.Key, header.Value.FirstOrDefault());
+            }
+            return headers;
         }
     }
 }
